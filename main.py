@@ -202,20 +202,21 @@ for k, v in {
         st.session_state[k] = v
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
+def get_api_key():
+    # Checks Streamlit Cloud Secrets FIRST, then falls back to Sidebar input
+    return st.secrets.get("GEMINI_API_KEY", "") or st.session_state.api_key
+
 def get_model():
-    key = st.session_state.api_key
+    key = get_api_key()
     if not key:
         return None
     genai.configure(api_key=key)
-    return genai.GenerativeModel(
-        'gemini-3.1-flash-lite',
-        system_instruction=SYSTEM_PROMPT
-    )
+    return genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
 
 def call_gemini(prompt: str) -> str:
     model = get_model()
     if not model:
-        return "⚠️ No API key. Paste your Gemini key in the sidebar."
+        return "⚠️ No API key found. Please add 'GEMINI_API_KEY' to Streamlit Secrets or the sidebar."
     try:
         response = model.generate_content(prompt)
         st.session_state.total_gen += 1
@@ -224,8 +225,7 @@ def call_gemini(prompt: str) -> str:
         return f"❌ Error: {str(e)}"
 
 def gen_daily_topics():
-    sample = random.sample(TOPIC_POOL, min(2, len(TOPIC_POOL)))
-    st.session_state.daily_topics = sample
+    st.session_state.daily_topics = random.sample(TOPIC_POOL, min(2, len(TOPIC_POOL)))
 
 def save_history(mode, label, output):
     st.session_state.history.insert(0, {
@@ -239,7 +239,7 @@ def save_history(mode, label, output):
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Settings")
-    key_input = st.text_input("Gemini API Key", type="password",
+    key_input = st.text_input("Gemini API Key (Optional if set in Secrets)", type="password",
                                value=st.session_state.api_key,
                                placeholder="AIza...")
     if key_input != st.session_state.api_key:
@@ -252,14 +252,18 @@ with st.sidebar:
     st.markdown("**Navigation**")
     if st.button("🏠 Home", use_container_width=True):
         st.session_state.page = "home"
+        st.rerun()
     if st.button("💡 Daily Topics", use_container_width=True):
         st.session_state.page = "topics"
         if not st.session_state.daily_topics:
             gen_daily_topics()
+        st.rerun()
     if st.button("✍️ Script Review", use_container_width=True):
         st.session_state.page = "review"
+        st.rerun()
     if st.button("📜 History", use_container_width=True):
         st.session_state.page = "history"
+        st.rerun()
 
 # ── TOP BAR ────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -400,8 +404,8 @@ elif st.session_state.page == "topics":
         st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
         if st.button("⚡ Generate Content for All Selected Platforms"):
-            if not st.session_state.api_key:
-                st.error("Add your Gemini API key in the sidebar first.")
+            if not get_api_key():
+                st.error("Add your Gemini API key in Streamlit Secrets or the sidebar first.")
             elif not selected_platforms:
                 st.warning("Select at least one platform.")
             else:
@@ -473,8 +477,8 @@ elif st.session_state.page == "review":
         st.markdown('<div class="section-label">Output</div>', unsafe_allow_html=True)
 
         if run_review:
-            if not st.session_state.api_key:
-                st.error("Add your Gemini API key in the sidebar.")
+            if not get_api_key():
+                st.error("Add your Gemini API key in Streamlit Secrets or the sidebar first.")
             elif not user_content.strip():
                 st.warning("Paste your content on the left first.")
             else:
