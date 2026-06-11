@@ -211,7 +211,7 @@ def get_model():
     if not key:
         return None
     genai.configure(api_key=key)
-    return genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
+    return genai.GenerativeModel('gemini-3.1-flash-lite', system_instruction=SYSTEM_PROMPT)
 
 def call_gemini(prompt: str) -> str:
     model = get_model()
